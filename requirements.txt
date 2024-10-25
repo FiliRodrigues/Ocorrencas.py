@@ -1,3 +1,8 @@
-plotly
+plotly==5.3.1
 streamlit
-pandas  # e qualquer outra biblioteca necessária
+pandas
+openpyxl
+
+
+
+  # e qualquer outra biblioteca necessária
