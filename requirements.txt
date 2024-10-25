@@ -4,6 +4,3 @@ pandas
 openpyxl
 numpy==1.23.0
 
-
-
-  # e qualquer outra biblioteca necessária
