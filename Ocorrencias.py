@@ -3,6 +3,10 @@ import pandas as pd
 import re
 import plotly.express as px
 from datetime import date, timedelta
+import numpy as np
+
+# Substituir np.bool8 por np.bool_
+array = np.array([True, False, True], dtype=np.bool_)
 
 # Configuração da página
 st.set_page_config(page_title="Dashboard de Ocorrências", layout="wide")
