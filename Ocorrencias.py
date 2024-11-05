@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import re
 import plotly.express as px
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 import numpy as np
 
 # Corrige a depreciação do tipo np.bool_
@@ -12,63 +12,71 @@ array = np.array([True, False, True], dtype=np.bool_)
 # --- Configuração da Página ---
 st.set_page_config(page_title="Dashboard de Ocorrências", layout="wide")
 
-# --- Estilo CSS aprimorado para o Dashboard ---
-st.markdown("""
-    <style>
-    body {
-        background-color: #f4f4f4; /* Cor de fundo neutra */
-    }
-    h1, h2, h3, h4, p {
-        font-family: 'Verdana', sans-serif;
-        color: #2C3E50;  /* Cor corporativa ou cor escura */
-    }
-    .css-18e3th9 {
-        padding: 1rem;
-        background-color: #ffffff;
-        border-radius: 8px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);  /* Sombra sutil */
-    }
-    .stDataFrame {
-        border: 1px solid #d3d3d3;
-        border-radius: 8px;
-    }
-    hr {
-        border: 1px solid #666;
-    }
-    .centered-logo img {
-        display: block;
-        margin-left: auto;
-        margin-right: auto;
-    }
-    .card {
-        padding: 15px;
-        background-color: #ffffff;
-        border-radius: 10px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-        text-align: center;
-        font-size: 18px;
-        font-weight: bold;
-        color: #2C3E50;
-        margin: 10px 0;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
-# --- Exibir Logo Centralizada ---
-st.markdown("### Dashboard de Ocorrências")
+# ====================== BLOCO 1: Função para Configuração de CSS ======================
+def aplicar_estilo():
+    st.markdown("""
+        <style>
+        body {
+            background-color: #f4f4f4; 
+        }
+        h1, h2, h3, h4, p {
+            font-family: 'Verdana', sans-serif;
+            color: #2C3E50;
+        }
+        .css-18e3th9 {
+            padding: 1rem;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .stDataFrame {
+            border: 1px solid #d3d3d3;
+            border-radius: 8px;
+        }
+        hr {
+            border: 1px solid #666;
+        }
+        .centered-logo img {
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .card {
+            padding: 15px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #2C3E50;
+            margin: 10px 0;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
+# Aplicar estilo
+aplicar_estilo()
+
+
+# ====================== BLOCO 2: Exibir Logo e Cabeçalho ======================
+st.markdown("### Dashboard de Ocorrências Cidade de Paulinia")
 st.image("logo.png", width=150)
-    
 
-# --- Seção: Visão Geral ---
-st.markdown("### Visão Geral")
 
-# --- Carregamento dos Dados ---
-file_path = "Relatorio 1 a 28.xlsx"
-df = pd.read_excel(file_path, sheet_name='Planilha1')
+# ====================== BLOCO 3: Função para Carregar Dados ======================
+@st.cache_data
+def carregar_dados(file_path):
+    return pd.read_excel(file_path, sheet_name='Planilha1')
 
-# --- Função de Conversão da Duração ---
+file_path = "Rel Outubro.xlsx"
+df = carregar_dados(file_path)
+
+
+# ====================== BLOCO 4: Função de Conversão da Duração ======================
 def converter_duracao(duracao):
-    if isinstance(duracao, str):  # Verifica se é uma string
+    if isinstance(duracao, str):
         duracao = duracao.strip()
         horas = minutos = 0
         match = re.match(r'(?:(\d+)h)?\s*(\d+)min?', duracao)
@@ -77,236 +85,209 @@ def converter_duracao(duracao):
                 horas = int(match.group(1))
             minutos = int(match.group(2))
         return horas * 60 + minutos
-    return 0  # Retorna 0 se o valor não for uma string (caso seja NaN)
+    return 0
 
-# --- Aplicar Conversões e Selecionar Colunas Relevantes ---
+# Aplicar conversão e ajustes no DataFrame
 df['Duração (min)'] = df['Duração'].apply(converter_duracao)
 df['Data/Hora inicial'] = pd.to_datetime(df['Data/Hora inicial']).dt.date
-df['Guarnição'] = df['Guarnição'].str[:7]  # Manter apenas as 7 primeiras letras da Guarnição
-
-# Criar o DataFrame reduzido
-colunas_relevantes = ['Data/Hora inicial', 'Guarnição', 'Natureza', 'Endereço do fato']
-df_reduzido = df[colunas_relevantes + ['Duração (min)']]
-
-# Substituir NaN por "Sem Necessidade" na coluna 'Guarnição'
-df_reduzido['Guarnição'] = df_reduzido['Guarnição'].fillna("Sem Necessidade")
+df['Guarnição'] = df['Guarnição'].str[:7]
+df_reduzido = df[['Data/Hora inicial', 'Guarnição', 'Natureza', 'Endereço do fato', 'Duração (min)']]
+df_reduzido['Guarnição'] = df_reduzido['Guarnição'].fillna("Sem Necessidade").astype(str)
 
 
+# ====================== BLOCO 5: Seção de Resumo Geral ======================
+st.markdown("## Visão Geral")
+col1, col2, col3 = st.columns(3)
+valor_total_atendimentos = df_reduzido.shape[0]
+media_duracao_total = df_reduzido['Duração (min)'].mean()
 
-
-# Garantir que todos os valores em 'Guarnição' são strings
-df_reduzido['Guarnição'] = df_reduzido['Guarnição'].astype(str)
-
-
-# Barra de progresso para carregamento de dados
-with st.spinner("Carregando os dados..."):
-    total_por_natureza = (
-        df_reduzido.groupby('Natureza').size()
-        .reset_index(name='Total de Ocorrências')
-        .sort_values(by='Total de Ocorrências', ascending=False)
-    )
-
-    total_por_viatura_completo = (
-        df_reduzido.groupby('Guarnição').size()
-        .reset_index(name='Total de Atendimentos')
-        .sort_values(by='Total de Atendimentos', ascending=False)
-    )
-
-# --- Seção: Totais de Atendimentos ---
-st.markdown("### Totais de Atendimentos")
-st.markdown("<br>", unsafe_allow_html=True)
-
-# --- Exibir KPIs em formato de cartão ---
-valor_total_atendimentos = total_por_natureza['Total de Ocorrências'].sum()
-
-col1, col2 = st.columns(2)
 with col1:
-    st.markdown('<div class="card">Total de Atendimentos por Natureza: {}</div>'.format(valor_total_atendimentos), unsafe_allow_html=True)
-    st.dataframe(total_por_natureza.style.format({"Total de Ocorrências": "{:.0f}"}), height=450)
-
+    st.markdown(f'<div class="card">Total de Atendimentos: {valor_total_atendimentos}</div>', unsafe_allow_html=True)
 with col2:
-    st.markdown('<div class="card">Total de Atendimentos por Viatura</div>', unsafe_allow_html=True)
-    st.dataframe(total_por_viatura_completo, height=450)
+    st.markdown(f'<div class="card">Média de Duração (min): {media_duracao_total:.2f}</div>', unsafe_allow_html=True)
+with col3:
+    top_natureza = df_reduzido['Natureza'].value_counts().idxmax()
+    st.markdown(f'<div class="card">Natureza Mais Frequente: {top_natureza}</div>', unsafe_allow_html=True)
 
-# Linha Divisória
-st.markdown("<hr>", unsafe_allow_html=True)
 
-# --- Gráfico de Atendimentos por Dia ---
-st.markdown("### Gráfico de Atendimentos por Dia")
-atendimentos_por_dia = (
-    df_reduzido.groupby('Data/Hora inicial').size()
-    .reset_index(name='Quantidade de Atendimentos')
-    .sort_values(by='Data/Hora inicial')
-)
+# ====================== BLOCO 6: Visão Geral - Totais de Atendimentos ======================
+tabs = st.tabs(["Visão Geral", "Filtros e Relatórios"])
+with tabs[0]:
+    st.markdown("### Totais de Atendimentos")
+    
+    with st.spinner("Carregando dados..."):
+        total_por_natureza = df_reduzido.groupby('Natureza').size().reset_index(name='Total de Ocorrências').sort_values(by='Total de Ocorrências', ascending=False)
+        total_por_viatura_completo = df_reduzido.groupby('Guarnição').size().reset_index(name='Total de Atendimentos').sort_values(by='Total de Atendimentos', ascending=False)
 
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f'<div class="card">Total de Atendimentos por Natureza</div>', unsafe_allow_html=True)
+        st.dataframe(total_por_natureza.style.format({"Total de Ocorrências": "{:.0f}"}), height=450)
+
+    with col2:
+        st.markdown('<div class="card">Total de Atendimentos por Viatura</div>', unsafe_allow_html=True)
+        st.dataframe(total_por_viatura_completo, height=450)
+
+
+# ====================== BLOCO 8: Gráfico de Atendimentos por Dia ======================
+st.markdown("### Atendimentos Diários")
+
+# Garantir que 'Data/Hora inicial' esteja no formato datetime
+df_reduzido['Data/Hora inicial'] = pd.to_datetime(df_reduzido['Data/Hora inicial'])
+
+# Agrupar os dados por data e contar as ocorrências
+atendimentos_por_dia = df_reduzido.groupby('Data/Hora inicial').size().reset_index(name='Quantidade de Atendimentos').sort_values(by='Data/Hora inicial')
+
+# Adicionar uma coluna para exibir apenas o dia
+atendimentos_por_dia['Dia'] = atendimentos_por_dia['Data/Hora inicial'].dt.strftime('%d')
+
+# Criar gráfico de barras
 fig_atendimentos_dia = px.bar(
     atendimentos_por_dia,
     x='Data/Hora inicial',
     y='Quantidade de Atendimentos',
+    title='Quantidade de Atendimentos por Dia',
     labels={'Data/Hora inicial': 'Data', 'Quantidade de Atendimentos': 'Atendimentos'},
-    title='Quantidade de Atendimentos por Dia'
+    color='Data/Hora inicial', 
+    text=atendimentos_por_dia['Quantidade de Atendimentos']
 )
-fig_atendimentos_dia.update_traces(texttemplate='%{y}', textposition='outside')
+
+# Atualizar layout e limitar o eixo y a um máximo de 120
+fig_atendimentos_dia.update_traces(texttemplate='%{text}', textposition='outside', textfont=dict(size=18))
 fig_atendimentos_dia.update_layout(
-    xaxis_title='Data',
-    yaxis_title='Quantidade de Atendimentos',
     plot_bgcolor='rgba(0,0,0,0)',
     paper_bgcolor='rgba(0,0,0,0)',
-    bargap=0.2
+    xaxis_title='Data',
+    yaxis_title='Quantidade de Atendimentos',
+    yaxis=dict(range=[0, 120]),  # Limite do eixo y definido para 120
+    title_font_size=20,
+    title_font_family='Verdana',
+    showlegend=False,
+    height=500,
+    width=1000,
+    xaxis=dict(tickvals=atendimentos_por_dia['Data/Hora inicial'], ticktext=atendimentos_por_dia['Dia'])
 )
+
+# Exibir o gráfico
 st.plotly_chart(fig_atendimentos_dia, use_container_width=True)
 
-# --- Configuração da Barra Lateral de Filtros ---
-st.sidebar.title("Filtros de Ocorrências")
-mostrar_natureza = st.sidebar.checkbox("Filtrar por Natureza")
-mostrar_viatura = st.sidebar.checkbox("Filtrar por Viatura")
 
-# --- Seção: Relatórios por Natureza ---
-if mostrar_natureza:
-    st.markdown("### Relatório de Ocorrências por Natureza")
-    st.markdown("<br>", unsafe_allow_html=True)
 
-    naturezas_ordenadas = df_reduzido['Natureza'].value_counts().index.tolist()
-    natureza_selecionada = st.sidebar.selectbox("Selecione a Natureza:", options=naturezas_ordenadas)
-    hoje = date.today()
-    data_inicial, data_final = st.sidebar.date_input("Selecione o Período:", value=[hoje - timedelta(days=30), hoje])
+# ====================== BLOCO 9: Filtros de Mês, Natureza e Viatura ======================
+st.markdown("### Filtros de Mês, Natureza e Viatura")
 
-    ocorrencias_filtradas = df_reduzido[
-        (df_reduzido['Natureza'] == natureza_selecionada) &
-        (df_reduzido['Data/Hora inicial'] >= data_inicial) &
-        (df_reduzido['Data/Hora inicial'] <= data_final)
-    ]
+# Seleção de Mês Simplificada
+st.markdown("#### Selecione o Mês")
+meses_disponiveis = sorted(df_reduzido['Data/Hora inicial'].dt.strftime('%Y-%m').unique())
+mes_selecionado = st.selectbox("Mês", options=meses_disponiveis, format_func=lambda x: datetime.strptime(x, '%Y-%m').strftime('%B %Y'))
 
-    if not ocorrencias_filtradas.empty:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown('<div class="card">Total de Atendimentos: {}</div>'.format(len(ocorrencias_filtradas)), unsafe_allow_html=True)
-        with col2:
-            top_endereco = ocorrencias_filtradas['Endereço do fato'].value_counts().idxmax() if not ocorrencias_filtradas.empty else "N/A"
-            st.markdown('<div class="card">Endereço Mais Frequente: {}</div>'.format(top_endereco), unsafe_allow_html=True)
-        with col3:
-            media_duracao = ocorrencias_filtradas['Duração (min)'].mean()
-            st.markdown('<div class="card">Tempo Médio (min): {:.2f}</div>'.format(media_duracao), unsafe_allow_html=True)
+# Converter o mês selecionado para o primeiro e o último dia do mês
+ano_mes = datetime.strptime(mes_selecionado, '%Y-%m')
+primeiro_dia_mes = ano_mes.replace(day=1)
+ultimo_dia_mes = (ano_mes.replace(month=ano_mes.month % 12 + 1, day=1) - timedelta(days=1))
 
-        st.dataframe(ocorrencias_filtradas, height=500)
+# Filtros de Natureza e Viatura
+col1, col2 = st.columns(2)
 
-        # Relatório por viatura para a natureza selecionada
-        st.markdown("### Total de Atendimentos por Viatura para a Natureza Selecionada")
-        atendimentos_por_viatura_natureza = (
-            ocorrencias_filtradas.groupby('Guarnição').size()
-            .reset_index(name='Total de Atendimentos')
-            .sort_values(by='Total de Atendimentos', ascending=False)
-        )
-        st.dataframe(atendimentos_por_viatura_natureza, height=300)
+with col1:
+    st.markdown("#### Filtrar por Natureza")
+    naturezas_ordenadas = ["Todas"] + df_reduzido['Natureza'].value_counts().index.tolist()
+    natureza_selecionada = st.selectbox("Escolha uma Natureza", options=naturezas_ordenadas, index=0)
 
-        # Gráfico de Atendimentos por Dia para a Natureza Selecionada
-        atendimentos_por_dia_natureza = (
-            ocorrencias_filtradas.groupby('Data/Hora inicial').size()
-            .reset_index(name='Quantidade de Atendimentos')
-            .sort_values(by='Data/Hora inicial')
-        )
-        fig_atendimentos_dia_natureza = px.bar(
-            atendimentos_por_dia_natureza,
-            x='Data/Hora inicial',
-            y='Quantidade de Atendimentos',
-            labels={'Data/Hora inicial': 'Data', 'Quantidade de Atendimentos': 'Atendimentos'},
-            title=f'Quantidade de Atendimentos por Dia - {natureza_selecionada}'
-        )
-        fig_atendimentos_dia_natureza.update_traces(texttemplate='%{y}', textposition='outside')
-        fig_atendimentos_dia_natureza.update_layout(
-            xaxis_title='Data',
-            yaxis_title='Quantidade de Atendimentos',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            bargap=0.2
-        )
-        st.plotly_chart(fig_atendimentos_dia_natureza, use_container_width=True)
-    else:
-        st.subheader("Sem ocorrências para a natureza e período selecionados.")
+with col2:
+    st.markdown("#### Filtrar por Viatura")
+    viaturas_disponiveis = ["Todas"] + sorted(df_reduzido['Guarnição'].unique())
+    viatura_selecionada = st.selectbox("Escolha uma Viatura", options=viaturas_disponiveis, index=0)
 
-st.markdown("<hr>", unsafe_allow_html=True)
+# Aplicar os filtros de Mês, Natureza e Viatura ao DataFrame
+ocorrencias_filtradas = df_reduzido[
+    (df_reduzido['Data/Hora inicial'] >= primeiro_dia_mes) & 
+    (df_reduzido['Data/Hora inicial'] <= ultimo_dia_mes) & 
+    (df_reduzido['Natureza'].isin([natureza_selecionada] if natureza_selecionada != "Todas" else df_reduzido['Natureza'].unique())) &
+    (df_reduzido['Guarnição'].isin([viatura_selecionada] if viatura_selecionada != "Todas" else df_reduzido['Guarnição'].unique()))
+]
 
-# --- Filtro por Viatura ---
-if mostrar_viatura:
-    st.markdown("### Relatório de Ocorrências por Viatura")
+# Exibir o Relatório Filtrado com base nos filtros aplicados
+st.markdown("### Relatório Filtrado")
+col1, col2, col3 = st.columns(3)
+with col1:
+    st.markdown(f'<div class="card">Total de Atendimentos: {len(ocorrencias_filtradas)}</div>', unsafe_allow_html=True)
 
-    # Ajusta as viaturas disponíveis com base no filtro de natureza
-    viaturas_disponiveis = ocorrencias_filtradas['Guarnição'].unique() if mostrar_natureza and not ocorrencias_filtradas.empty else sorted(df_reduzido['Guarnição'].unique())
-    viatura_selecionada = st.sidebar.selectbox("Selecione a Viatura:", options=viaturas_disponiveis)
+with col2:
+    # Viatura com maior número de atendimentos
+    viatura_mais_frequente = ocorrencias_filtradas['Guarnição'].value_counts().idxmax() if not ocorrencias_filtradas.empty else "N/A"
+    st.markdown(f'<div class="card">Viatura com Mais Atendimentos: {viatura_mais_frequente}</div>', unsafe_allow_html=True)
 
-    # Filtra os atendimentos da viatura selecionada (considerando o filtro de natureza se aplicado)
-    atendimentos_viatura = ocorrencias_filtradas if mostrar_natureza else df_reduzido
-    atendimentos_viatura = atendimentos_viatura[atendimentos_viatura['Guarnição'] == viatura_selecionada]
+with col3:
+    # Natureza mais frequente nas ocorrências filtradas
+    natureza_mais_frequente = ocorrencias_filtradas['Natureza'].value_counts().idxmax() if not ocorrencias_filtradas.empty else "N/A"
+    st.markdown(f'<div class="card">Natureza Mais Frequente: {natureza_mais_frequente}</div>', unsafe_allow_html=True)
 
-    st.subheader(f"Atendimentos da Viatura {viatura_selecionada}")
-    st.markdown('<div class="card">Total de Atendimentos - Viatura Selecionada: {}</div>'.format(len(atendimentos_viatura)), unsafe_allow_html=True)
+# Exibir o DataFrame filtrado com largura aumentada e data formatada como DD/MM
+ocorrencias_filtradas['Data/Hora inicial'] = ocorrencias_filtradas['Data/Hora inicial'].dt.strftime('%d/%m')
+st.dataframe(ocorrencias_filtradas, height=500, width=1000)
 
-    if not atendimentos_viatura.empty:
-        st.dataframe(atendimentos_viatura, height=400)
+# Mostrar tabela extra de natureza quando apenas uma viatura específica é selecionada e natureza = "Todas"
+if natureza_selecionada == "Todas" and viatura_selecionada != "Todas":
+    # Agrupar por natureza para a viatura selecionada e exibir o total de ocorrências por natureza
+    total_por_natureza_viatura = ocorrencias_filtradas.groupby('Natureza').size().reset_index(name='Total de Ocorrências').sort_values(by='Total de Ocorrências', ascending=False)
 
-        if not mostrar_natureza:
-            ocorrencias_por_natureza_viatura = (
-                atendimentos_viatura.groupby('Natureza').size()
-                .reset_index(name='Total de Ocorrências')
-                .sort_values(by='Total de Ocorrências', ascending=False)
-            )
-            ocorrencias_por_natureza_viatura['Natureza (curta)'] = ocorrencias_por_natureza_viatura['Natureza'].str[:7]
+    # Exibir tabela adicional ao lado da tabela principal
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown(f'<div class="card">Total de Atendimentos por Natureza para a Viatura {viatura_selecionada}</div>', unsafe_allow_html=True)
+        st.dataframe(total_por_natureza_viatura.style.format({"Total de Ocorrências": "{:.0f}"}), height=450)
 
-            # Layout com coluna para tabela e gráfico
-            col1, col2 = st.columns([1, 1.5])
 
-            with col1:
-                st.subheader("Ocorrências por Natureza - Viatura Selecionada")
-                st.dataframe(ocorrencias_por_natureza_viatura, height=400)
+# ====================== BLOCO 10: Gráfico de Atendimentos Diários da Natureza Selecionada ======================
+st.markdown("### Gráfico de Atendimentos Diários")
 
-            with col2:
-                fig_natureza_viatura = px.bar(
-                    ocorrencias_por_natureza_viatura, x='Natureza (curta)', y='Total de Ocorrências',
-                    labels={'Natureza (curta)': 'Natureza', 'Total de Ocorrências': 'Ocorrências'},
-                      # Aplicação da altura global
-                )
-                fig_natureza_viatura.update_traces(texttemplate='%{y}', textposition='outside')
-                fig_natureza_viatura.update_layout(
-                    title='Distribuição de Ocorrências por Natureza - Viatura Selecionada',
-                    xaxis_title='Natureza',
-                    yaxis_title='Número de Ocorrências',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    bargap=0.3
-                )
-                st.plotly_chart(fig_natureza_viatura, use_container_width=True)
+# Filtrar para obter apenas as ocorrências da natureza e viatura selecionadas por dia
+atendimentos_diarios = ocorrencias_filtradas.groupby('Data/Hora inicial').size().reset_index(name='Quantidade de Atendimentos')
 
-        # --- Conversão de tipos para 'Data/Hora inicial' e 'Quantidade de Atendimentos' ---
-        atendimentos_por_dia_viatura = (
-            atendimentos_viatura.groupby('Data/Hora inicial').size()
-            .reset_index(name='Quantidade de Atendimentos')
-            .sort_values(by='Data/Hora inicial')
-        )
+# Configuração do tamanho da fonte para o texto acima das barras e da legenda
+tamanho_fonte_texto = 25  # Ajuste o tamanho da fonte para os valores no topo das barras
+tamanho_fonte_legenda = 20  # Ajuste o tamanho da fonte da legenda
 
-        # Assegurar que 'Data/Hora inicial' é datetime e 'Quantidade de Atendimentos' é numérico
-        atendimentos_por_dia_viatura['Data/Hora inicial'] = pd.to_datetime(atendimentos_por_dia_viatura['Data/Hora inicial'], errors='coerce')
-        atendimentos_por_dia_viatura['Quantidade de Atendimentos'] = pd.to_numeric(atendimentos_por_dia_viatura['Quantidade de Atendimentos'], errors='coerce')
+# Criar gráfico de barras com cores diferentes para cada barra
+fig_natureza_dia = px.bar(
+    atendimentos_diarios,
+    x='Data/Hora inicial',
+    y='Quantidade de Atendimentos',
+    title=f'Quantidade de Atendimentos Diários - Natureza: {natureza_selecionada if natureza_selecionada != "Todas" else "Todas"}',
+    labels={'Data/Hora inicial': 'Data', 'Quantidade de Atendimentos': 'Atendimentos'},
+    color='Data/Hora inicial',
+    text='Quantidade de Atendimentos'
+)
 
-        # Criação do Gráfico com altura e largura ajustáveis
-        fig_atendimentos_dia_viatura = px.bar(
-            atendimentos_por_dia_viatura,
-            x='Data/Hora inicial',
-            y='Quantidade de Atendimentos',
-            labels={'Data/Hora inicial': 'Data', 'Quantidade de Atendimentos': 'Atendimentos'},
-            title=f'Quantidade de Atendimentos por Dia - Viatura {viatura_selecionada}',
-               # Altura do controle global
-            width=1000                # Defina a largura desejada
-        )
+# Configurações de layout do gráfico
+fig_natureza_dia.update_traces(
+    texttemplate='%{text}',  # Quantidade de atendimentos no topo
+    textposition='outside',
+    textfont=dict(size=tamanho_fonte_texto)  # Define o tamanho da fonte do texto acima das barras
+)
+fig_natureza_dia.update_layout(
+    plot_bgcolor='rgba(0,0,0,0)',
+    paper_bgcolor='rgba(0,0,0,0)',
+    xaxis_title='Data',
+    yaxis_title='Quantidade de Atendimentos',
+    yaxis=dict(range=[0, 120]),  # Define o limite superior do eixo y para 120
+    showlegend=False,  # Ativa a legenda
+    width=1000,
+    legend=dict(font=dict(size=tamanho_fonte_legenda))  # Define o tamanho da fonte da legenda
+)
 
-        fig_atendimentos_dia_viatura.update_traces(texttemplate='%{y}', textposition='outside')
-        fig_atendimentos_dia_viatura.update_layout(
-            xaxis_title='Data',
-            yaxis_title='Quantidade de Atendimentos',
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            bargap=0.3                 # Ajuste do espaçamento entre barras
-        )
+# Exibir o gráfico
+st.plotly_chart(fig_natureza_dia, use_container_width=True)
 
-        st.plotly_chart(fig_atendimentos_dia_viatura, use_container_width=True)
-    else:
-        st.write("Sem atendimentos registrados para a viatura selecionada.")
+
+# ====================== BLOCO 10: Função de Rodapé ======================
+def exibir_rodape():
+    st.markdown("""
+        ---
+        **Dashboard de Ocorrências** - Desenvolvido para análise e monitoramento das atividades de guarnição.
+        Visualizações detalhadas por Natureza, Viatura, e Período para facilitar decisões estratégicas.
+    """)
+
+# Exibir o rodapé
+exibir_rodape()
